@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="style.css">
+    <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
+    <title>Estacionamento - Placa e Valor</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.7.0/chart.min.js"></script>
+</head>
+<body>
+    <div class="wrapper">
+        <form action="" id="formEstacionamento">
+            <h1>Estacionamento</h1>
+            <div class="input-box">
+                <input type="text" id="placaCarro" placeholder="Placa do Carro" required>
+                <i class='bx bxs-car'></i>
+            </div>
+            <div class="input-box">
+                <input type="text" id="horarioEntrada" placeholder="Horário de Entrada (hora:minuto)" required>
+                <i class='bx bxs-time'></i>
+            </div>
+            <button type="button" id="btn" class="btn">Estacionar</button>
+            <div class="wrapperBtn">
+                <button type="button" id="btn2" class="btn2">Calcular</button>
+                <button type="button" id="btn3" class="btn2">Remover</button>
+                <button type="button" id="btn4" class="btn2">Estado</button>
+            </div>
+            <div id="resultado" class="resultado"></div>
+        <div id="chartContainer" class="chart-container">
+            <canvas id="myChart" width="400" height="200"></canvas>
+        </div>
+        </form>
+        <div id="vagas" class="vagas"></div>
+    </div>
+
+    <script>
+        let vagas = Array.from({ length: 3 }, () => Array(3).fill(""));
+        let myChart = null;
+        document.getElementById("myChart").hidden = true;
+        
+
+        document.getElementById("btn").addEventListener("click", function() {
+            document.getElementById("myChart").innerHTML = '';
+            document.getElementById("myChart").hidden = true;
+            if(myChart){
+                myChart.destroy();
+            }
+            document.getElementById("resultado").hidden = true;
+            let horaEntrada = document.getElementById("horarioEntrada").value;
+            let placa = document.getElementById("placaCarro").value;
+            let [hora, minuto] = horaEntrada.split(':');
+            let tempoEntradaMinutos = convertendoTempo(hora, minuto);
+            let carrinho = inserirCarro(tempoEntradaMinutos, placa);
+            let sair;
+            let estacionado = false;
+            let agora = new Date();
+            let horaSaida = agora.getHours();
+            let minutoSaida = agora.getMinutes();
+            let tempoSaidaMinutos = convertendoTempo(horaSaida, minutoSaida);
+            if(tempoEntradaMinutos > tempoSaidaMinutos){
+                    alert("Carro não pode sair antes de entrar");
+            }else{
+                for (let j = 0; j < 3; j++) {
+                for (let i = 0; i < 3; i++) {
+                    if (vagas[i][j].placa == placa) {
+                        estacionado = true;
+                        sair = true;
+                        break;
+                    }
+                }
+                if (sair) { break; }
+            }
+
+            if (!estacionado) {
+                for (let j = 0; j < 3; j++) {
+                    sair = false;
+                    for (let i = 0; i < 3; i++) {
+                        if (vagas[i][j] == "") {
+                            vagas[i][j] = carrinho;
+                            sair = true;
+                            break;
+                        }
+                    }
+                    if (sair) { break; }
+                }
+                if (!sair) {
+                    alert("Lotado!!!");
+                }
+            } else {
+                alert("Carro já se encontra no estacionamento");
+            }
+
+            let vagasHTML = '';
+            let nVaga = 1;
+            vagas.forEach((linha, j) => {
+                linha.forEach((vaga, i) => {
+                    vagasHTML += `<strong>vaga ${nVaga} ${vaga.placa || vaga}</strong><br>`;
+                    nVaga++;
+                });
+            });
+            document.getElementById('vagas').innerHTML = vagasHTML;
+            }
+            
+        });
+
+        document.getElementById("btn2").addEventListener("click", function() {
+
+            document.getElementById("vagas").innerHTML = '';
+            document.getElementById("resultado").innerHTML = '';
+            document.getElementById("myChart").hidden = false;
+            document.getElementById("resultado").hidden = false;
+        
+            
+            let placa = document.getElementById("placaCarro").value;
+            let carro = null;
+
+            for (let j = 0; j < 3; j++) {
+                let sair = false;
+                for (let i = 0; i < 3; i++) {
+                    if (vagas[i][j].placa == placa) {
+                        carro = vagas[i][j];
+                        sair = true;
+                        break;
+                    }
+                }
+                if (sair) { break; }
+            }
+
+            let agora = new Date();
+            let horaSaida = agora.getHours();
+            let minutoSaida = agora.getMinutes();
+            let tempoSaidaMinutos = convertendoTempo(horaSaida, minutoSaida);
+            criarGrafico((tempoSaidaMinutos-carro.entrada));
+
+            if (carro) {
+                let valor = gastoEstacionamento(carro.entrada, tempoSaidaMinutos);
+                document.getElementById('resultado').innerHTML = `<p>O carro de placa <strong>${placa}</strong> permaneceu estacionado por ${tempoSaidaMinutos - carro.entrada} minutos e deve pagar o valor de <strong>R$ ${valor}</strong></p><br>`;
+            } else {
+                alert("Carro não encontrado!");
+            }
+            
+            
+        });
+
+        document.getElementById("btn3").addEventListener("click", function() {
+            document.getElementById("myChart").innerHTML = '';
+            document.getElementById("myChart").hidden = true;
+            document.getElementById("resultado").hidden = true;
+            if (myChart) {
+                myChart.destroy();
+            }
+            let placaRemover = document.getElementById("placaCarro").value;
+            let sair;
+            for (let j = 0; j < 3; j++) {
+                sair = false;
+                for (let i = 0; i < 3; i++) {
+                    if (vagas[i][j].placa == placaRemover) {
+                        vagas[i][j] = "";
+                        sair = true;
+                        break;
+                    }
+                }
+                if (sair) { break; }
+            }
+            if (!sair) { alert("Carro não encontrado"); }
+            let vagasHTML = '';
+            let nVaga = 1;
+            vagas.forEach((linha, j) => {
+                linha.forEach((vaga, i) => {
+                    vagasHTML += `<strong>vaga ${nVaga} ${vaga.placa || vaga}</strong><br>`;
+                    nVaga++;
+                });
+            });
+            document.getElementById('vagas').innerHTML = vagasHTML;
+        });
+
+        document.getElementById("btn4").addEventListener("click", function() {
+            document.getElementById("resultado").hidden = false;
+            document.getElementById("vagas").innerHTML = '';
+            document.getElementById("resultado").innerHTML= '';
+            document.getElementById("myChart").innerHTML = '';
+            if (myChart) {
+                myChart.destroy();
+            }
+            document.getElementById("myChart").hidden = true;
+            let placa = document.getElementById("placaCarro").value;
+            if (placa >= "AAA" && placa < "BFA" || placa >= "RHA" && placa < "RIA") {
+                document.getElementById('resultado').innerHTML = `<p>A placa ${placa} pertence ao estado do Paraná</p><br>`;
+            } else if (placa >= "LWR" && placa < "MMN" ||
+             placa >= "OKD" && placa < "OKI" ||
+             placa >= "QHA" && placa < "QKA" ||
+             placa >= "QTK" && placa < "QTN" ||
+             placa >= "RAA" && placa < "RAK" ||
+             placa >= "RDS" && placa < "REC" ||
+             placa >= "RKW" && placa < "RLQ" ||
+             placa >= "RXK" && placa < "RYJ") {
+                document.getElementById('resultado').innerHTML = `<p>A placa ${placa} pertence ao estado de Santa Catarina</p><br>`;
+            } else if (placa >= "IAQ" && placa < "JDP") {
+                document.getElementById('resultado').innerHTML = `<p>A placa ${placa} pertence ao estado do Rio Grande do Sul</p><br>`;
+            } else {
+                document.getElementById('resultado').innerHTML = `<p>A placa ${placa} não pertence a um estado da região Sul</p><br>`;
+            }
+        });
+
+    
+        function convertendoTempo(hora, minuto) {
+            let tempoTotalEmMinutos = parseInt(hora) * 60 + parseInt(minuto);
+            return tempoTotalEmMinutos;
+        }
+
+        function gastoEstacionamento(entrada, saida) {
+            let tempoEstacionado = saida - entrada;
+            let pagamento = 0;
+
+            if (tempoEstacionado <= 15) {
+                pagamento = 0;
+            } else if (tempoEstacionado <= 180) {
+                pagamento = 15;
+            } else {
+                pagamento = 15 + Math.ceil((tempoEstacionado - 180) / 60) * 5;
+            }
+            return pagamento.toFixed(2);
+        }
+
+        function inserirCarro(entrada, placa) {
+            return { entrada, placa };
+        }
+        function criarGrafico(tempoSaidaMinutos) {
+            
+            if (myChart) {
+                myChart.destroy(); // Destrua o gráfico existente se houver
+            }
+    let ctx = document.getElementById('myChart').getContext('2d');
+         myChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: ['0','15','01','02','03','04','05','06','07','08','09','10','11','12','13','14','15','16'], // Labels do eixo X
+            datasets: [{
+                
+                data: [null,null,null,null,null,null,null,null,null,null], // Array vazio para os dados
+                backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                borderColor: 'rgba(75, 192, 192, 1)',
+                borderWidth: 1
+
+            },
+            {
+                
+                data: [null,null,null,null,null,null,null,null,null,null], // Array vazio para os dados
+                backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                borderColor: 'rgba(75, 192, 192, 1)',
+                borderWidth: 1
+
+            },
+            {
+                
+                data: [null,null,null,null,null,null,null,null,null,null], // Array vazio para os dados
+                backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                borderColor: 'rgba(75, 192, 192, 1)',
+                borderWidth: 1
+            },
+            {
+                
+                data: [null,null,null,null,null,null,null,null,null,null], // Array vazio para os dados
+                backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                borderColor: 'rgba(75, 192, 192, 1)',
+                borderWidth: 1
+                
+            },
+            {
+                
+                data: [null,null,null,null,null,null,null,null,null,null], // Array vazio para os dados
+                backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                borderColor: 'rgba(75, 192, 192, 1)',
+                borderWidth: 1
+
+            },
+            {
+                
+                data: [null,null,null,null,null,null,null,null,null,null], // Array vazio para os dados
+                backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                borderColor: 'rgba(75, 192, 192, 1)',
+                borderWidth: 1
+                
+
+
+            },
+            {
+                
+                data: [null,null,null,null,null,null,null,null,null,null], // Array vazio para os dados
+                backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                borderColor: 'rgba(75, 192, 192, 1)',
+                borderWidth: 1
+
+            },
+            {
+                
+                data: [null,null,null,null,null,null,null,null,null,null], // Array vazio para os dados
+                backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                borderColor: 'rgba(75, 192, 192, 1)',
+                borderWidth: 1
+                
+
+            },
+            {
+                
+                data: [null,null,null,null,null,null,null,null,null,null], // Array vazio para os dados
+                backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                borderColor: 'rgba(75, 192, 192, 1)',
+                borderWidth: 1
+                
+
+            },
+            {
+                
+                data: [null,null,null,null,null,null,null,null,null,null], // Array vazio para os dados
+                backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                borderColor: 'rgba(75, 192, 192, 1)',
+                borderWidth: 1,
+                
+
+            },
+            {
+                
+                data: [null,null,null,null,null,null,null,null,null,null], // Array vazio para os dados
+                backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                borderColor: 'rgba(75, 192, 192, 1)',
+                borderWidth: 1
+
+            },
+            {
+                
+                data: [null,null,null,null,null,null,null,null,null,null], // Array vazio para os dados
+                backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                borderColor: 'rgba(75, 192, 192, 1)',
+                borderWidth: 1
+
+            },
+            {
+                
+                data: [null,null,null,null,null,null,null,null,null,null], // Array vazio para os dados
+                backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                borderColor: 'rgba(75, 192, 192, 1)',
+                borderWidth: 1
+
+            },
+            {
+                
+                data: [null,null,null,null,null,null,null,null,null,null], // Array vazio para os dados
+                backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                borderColor: 'rgba(75, 192, 192, 1)',
+                borderWidth: 1
+
+            },
+            {
+                
+                data: [null,null,null,null,null,null,null,null,null,null], // Array vazio para os dados
+                backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                borderColor: 'rgba(75, 192, 192, 1)',
+                borderWidth: 1
+
+            },
+            {
+                
+                data: [null,null,null,null,null,null,null,null,null,null], // Array vazio para os dados
+                backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                borderColor: 'rgba(75, 192, 192, 1)',
+                borderWidth: 1
+
+            },
+            {
+                
+                data: [null,null,null,null,null,null,null,null,null,null], // Array vazio para os dados
+                backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                borderColor: 'rgba(75, 192, 192, 1)',
+                borderWidth: 1
+
+            },
+            {
+                
+                data: [null,null,null,null,null,null,null,null,null,null], // Array vazio para os dados
+                backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                borderColor: 'rgba(75, 192, 192, 1)',
+                borderWidth: 1
+
+            },
+            {
+                
+                data: [null,null,null,null,null,null,null,null,null,null], // Array vazio para os dados
+                backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                borderColor: 'rgba(75, 192, 192, 1)',
+                borderWidth: 1
+
+            },
+            {
+                
+                data: [null,null,null,null,null,null,null,null,null,null], // Array vazio para os dados
+                backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                borderColor: 'rgba(75, 192, 192, 1)',
+                borderWidth: 1
+
+            }
+        ]
+        },
+        options: {
+            plugins: {
+                legend: {
+                    display: false // Oculta a legenda (legend)
+                }
+            },
+            scales: {
+                x: {
+                    title: {
+                        display: true,
+                        text: 'Horas',
+                        color: 'white'
+                    },
+                    ticks: {
+                        color: 'white'
+                    }
+                },
+                y: {
+                    title: {
+                        display: true,
+                        text: 'Valor (R$)',
+                        color: 'white'
+                    },
+                    ticks: {
+                        color: 'white'
+                    }
+                }
+            }
+        }
+    });
+    let grafico = 0;
+    let j=2;
+    let cont=0;
+    for (let i = 0; i <= tempoSaidaMinutos; i++) {
+        
+        if (i <= 15) {
+            grafico = 0;
+        } else if (i <= 180) {
+            grafico = 15;
+        } else {
+            grafico = 15 + Math.ceil((i - 180) / 60) * 5;
+        }
+        if(i==15){
+           
+            myChart.data.datasets[0].data[0]=grafico;
+            myChart.data.datasets[0].data[1]=grafico;
+            cont=15;
+            
+        }
+        else if(i%60==0 && i<=180 && i>0){
+            
+            myChart.data.datasets[1].data[(i/60)]=grafico;
+            myChart.data.datasets[1].data[(i/60)+1]=grafico;
+            cont=i;
+
+        }
+        else if(i%60==0&&i>0)
+        {
+            myChart.data.datasets[j].data[i/60]=grafico;
+            myChart.data.datasets[j].data[i/60+1]=grafico;
+            j++;
+            cont=i;
+        }
+        
+    }
+    if(tempoSaidaMinutos>cont)
+    {
+        myChart.data.datasets[j].data[Math.ceil(tempoSaidaMinutos/60)]=grafico;
+        
+            
+    }
+
+    myChart.update();
+}
+
+
+
+
+        
+    </script>
+</body>
+</html>
